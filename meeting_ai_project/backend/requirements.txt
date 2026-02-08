@@ -1,0 +1,25 @@
+# --- Web Framework & API ---
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart  # Dosya upload için şart
+
+# --- Database & ORM ---
+sqlalchemy==2.0.25
+alembic  # Veritabanı migrasyonları için
+asyncpg  # Asenkron PostgreSQL sürücüsü
+psycopg2-binary # Senkron işlemler gerekirse diye
+pgvector # Vektör veritabanı desteği
+
+# --- Settings & Utilities ---
+pydantic-settings
+python-dotenv
+requests
+
+# --- AI & Audio Processing ---
+openai-whisper
+# Pyannote.audio (Ses ayrıştırma için) - Kurulumu bazen torch versiyonuna göre değişebilir ama buraya ekleyelim
+pyannote.audio
+torch
+torchaudio
+# OpenAI API (GPT-4o entegrasyonu için)
+openai
