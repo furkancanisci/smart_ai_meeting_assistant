@@ -2,6 +2,13 @@
 
 An intelligent meeting analysis platform that leverages cutting-edge AI technologies to transform how teams conduct, analyze, and retrieve insights from their meetings.
 
+## Pictures
+
+<img width="333" height="802" alt="Ekran Resmi 2026-02-12 20 19 13" src="https://github.com/user-attachments/assets/3a8929e2-dedd-4961-b2ee-53ba54685c2a" />
+<img width="338" height="816" alt="Ekran Resmi 2026-02-12 20 19 40" src="https://github.com/user-attachments/assets/9685bb12-b841-464f-ac44-ed0f87551871" />
+<img width="332" height="823" alt="Ekran Resmi 2026-02-12 20 20 18" src="https://github.com/user-attachments/assets/20d0b537-9d28-482e-a79f-76b9fed73109" />
+
+
 ## ✨ Key AI Features
 
 ### 🎯 **Advanced Speech Processing**
