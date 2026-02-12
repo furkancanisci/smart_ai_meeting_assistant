@@ -6,7 +6,7 @@ class ApiService {
   // Eğer emülatör kullanıyorsan: 'http://10.0.2.2:8000/api/v1'
   // Gerçek cihaz kullanıyorsan bilgisayarının IP'si: 'http://192.168.1.XX:8000/api/v1'
   // Loglardan gördüğüm kadarıyla senin IP:
-  final String baseUrl = 'http://192.168.1.19:8000/api/v1'; 
+  final String baseUrl = 'http://baseurl/api/v1'; 
 
   // 1. Toplantı Yükleme
   Future<int?> uploadMeeting(String filePath) async {

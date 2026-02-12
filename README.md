@@ -1,4 +1,4 @@
-# 🤖 Terra AI Meeting Assistant
+# 🤖 Smart AI Meeting Assistant
 
 An intelligent meeting analysis platform that leverages cutting-edge AI technologies to transform how teams conduct, analyze, and retrieve insights from their meetings.
 

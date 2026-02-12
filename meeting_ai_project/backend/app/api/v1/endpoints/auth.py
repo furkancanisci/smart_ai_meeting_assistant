@@ -1,5 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import APIRouter, Depends, HTTPException, status, Form, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel, EmailStr
@@ -32,10 +31,11 @@ class Token(BaseModel):
 # --- ROUTER ---
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
-
 # --- BAĞIMLILIKLAR (DEPENDENCIES) ---
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+async def get_current_user(
+    authorization: str = Header(None),
+    db: AsyncSession = Depends(get_db)
+) -> User:
     """
     Gelen istekteki Token'ı çözer ve kullanıcıyı bulur.
     Tüm korumalı endpoint'lerde bu fonksiyonu kullanacağız.
@@ -47,11 +47,17 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     )
     
     try:
+        # Extract token from "Bearer <token>" format
+        if authorization and authorization.startswith("Bearer "):
+            token = authorization.split(" ")[1]
+        else:
+            raise credentials_exception
+            
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except (JWTError, IndexError, AttributeError):
         raise credentials_exception
         
     # Kullanıcıyı veritabanında bul
@@ -93,17 +99,21 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     return new_user
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+async def login(
+    username: str = Form(...),
+    password: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Giriş yapar ve JWT Token döner.
     Not: form_data.username alanı email adresini taşır (OAuth2 standardı).
     """
     # 1. Kullanıcıyı bul
-    result = await db.execute(select(User).where(User.email == form_data.username))
+    result = await db.execute(select(User).where(User.email == username))
     user = result.scalars().first()
     
     # 2. Şifre kontrolü
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Hatalı email veya şifre",

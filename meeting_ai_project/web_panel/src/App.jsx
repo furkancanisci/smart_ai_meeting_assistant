@@ -81,7 +81,7 @@ function App() {
           <div className="bg-indigo-600 p-2 rounded-lg">
             <ChartBarIcon className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-gray-800 tracking-tight">Terra <span className="text-indigo-600">Admin</span></h1>
+          <h1 className="text-xl font-bold text-gray-800 tracking-tight">Smart AI Meeting Assistant <span className="text-indigo-600">Admin</span></h1>
         </div>
         <div className="flex gap-4">
            <button onClick={fetchMeetings} className="p-2 text-gray-500 hover:text-indigo-600 transition bg-gray-100 rounded-full">

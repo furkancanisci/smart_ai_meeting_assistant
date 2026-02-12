@@ -16,6 +16,7 @@ import os
 import soundfile as sf
 import numpy as np
 import json
+from datetime import datetime
 
 router = APIRouter()
 
@@ -348,12 +349,19 @@ async def global_chat(
         return {"answer": "Kayıtlarımda bu konuyla ilgili net bir bilgi bulamadım."}
 
     # 3. LLM'e HEPSİNİ GÖNDER
+    current_date = datetime.now().strftime("%d.%m.%Y")
+    current_day = datetime.now().strftime("%A")
+    
     full_prompt_context = f"""
-    Sen, 'Terra' adında profesyonel bir toplantı asistanısın.
+    Sen, 'Smart' adında profesyonel bir toplantı asistanısın.
     Aşağıda, geçmiş toplantı notları ve veritabanından çekilen görev listesi var.
     
     GÖREV LİSTESİ, kesin tarihleri içerir. Eğer kullanıcı tarih veya 'ne zaman' sorusu sorarsa ÖNCELİKLE görev listesine bak.
     Metin notları ise detayı içerir.
+    
+    --- MEVCUT TARİH BİLGİSİ ---
+    Bugünün Tarihi: {current_date}
+    Gün: {current_day}
     
     --- GÖREV VE TARİH LİSTESİ (KESİN BİLGİ) ---
     {tasks_context}

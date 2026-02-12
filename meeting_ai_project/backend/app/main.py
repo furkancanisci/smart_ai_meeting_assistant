@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="Terra AI Backend",
+    title="Smart AI Backend",
     version="2.1.0",
     lifespan=lifespan
 )
@@ -51,4 +51,4 @@ app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["
 
 @app.get("/")
 async def root():
-    return {"message": "Terra Backend Çalışıyor 🚀"}
+    return {"message": "Smart Backend Çalışıyor 🚀"}

@@ -193,7 +193,7 @@ class LLMService:
         Global veya Yerel fark etmeksizin, verilen Context'e göre soruyu cevaplar.
         """
         system_prompt = """
-        Sen 'Terra', tüm toplantıların verisine hakim akıllı bir asistansın.
+        Sen 'Smart', tüm toplantıların verisine hakim akıllı bir asistansın.
         
         GÖREVİN:
         Sana verilen 'BULUNAN VERİLER' kısmını analiz ederek kullanıcının sorusunu cevapla.

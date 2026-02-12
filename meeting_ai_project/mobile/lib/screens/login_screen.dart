@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   Center(
                     child: Text(
-                      _isLogin ? "Toplantılarını yönetmek için giriş yap." : "Terra ile toplantılarını asiste et.",
+                      _isLogin ? "Toplantılarını yönetmek için giriş yap." : "Smart ile toplantılarını asiste et.",
                       style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                     ),
                   ),

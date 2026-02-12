@@ -14,17 +14,16 @@ async def get_proactive_nudges(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Terra'nın 'Dürtme Modu'.
+    Smart'ın 'Dürtme Modu'.
     Tarih format hatalarına karşı korumalı versiyon.
     """
     now = datetime.now()
     # Test için 30 günlük pencere
     warning_threshold = now + timedelta(days=30) 
     
-    print(f"🔍 Terra Nudge Taraması Başladı: User {current_user.id}")
 
     # 1. SQL SORGUSU
-    # Not: Tarih karşılaştırmasını (<=) burada yapmıyoruz çünkü SQLite'da tarih string olabilir.
+    # Not: Tarih karşılaştırmalarını (<=) burada yapmıyoruz çünkü SQLite'da tarih string olabilir.
     # Tüm pending görevleri çekip Python tarafında filtreleyeceğiz (Daha güvenli).
     query = select(ActionItem, Meeting).join(Meeting)\
         .where(
@@ -79,19 +78,19 @@ async def get_proactive_nudges(
             # Mantık
             if hours_left < 0:
                 # Geçmiş tarih
-                msg = f"⚠️ SÜRESİ GEÇTİ: '{task.description}' görevi {abs(days_left)} gün gecikti!"
+                msg = f"'{task.description}' görevi {abs(days_left)} gün gecikti."
                 priority = "critical"
             elif days_left == 0:
                 # Bugün
-                msg = f"⏳ BUGÜN SON GÜN: '{task.description}' için son {hours_left} saat!"
+                msg = f"'{task.description}' görevi için son {hours_left} saat."
                 priority = "high"
             elif days_left == 1:
                 # Yarın
-                msg = f"📅 YARIN: '{task.description}' görevi için son gün. Hazır mısın?"
+                msg = f"'{task.description}' görevi yarın."
                 priority = "high"
             else:
                 # İleri tarih
-                msg = f"📌 Hatırlatma: '{task.description}' için {days_left} gün kaldı."
+                msg = f"'{task.description}' görevi için {days_left} gün kaldı."
                 priority = "medium"
 
             nudges.append({

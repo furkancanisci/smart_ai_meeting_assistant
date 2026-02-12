@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   // GÜNCEL IP ADRESİN (Bilgisayarının IP'si)
-  final String baseUrl = 'http://192.168.1.19:8000/api/v1'; 
+  final String baseUrl = 'http://baseurl:8000/api/v1'; 
 
   // --- TOKEN YÖNETİMİ ---
   

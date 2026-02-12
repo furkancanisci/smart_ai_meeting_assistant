@@ -11,10 +11,14 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart'; 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_tts/flutter_tts.dart'; 
+import 'package:add_2_calendar/add_2_calendar.dart'; 
 
 import 'services/api_service.dart';
+import 'services/translation_service.dart';
+import 'services/notification_service.dart';
 import 'screens/voice_profile_screen.dart'; 
-import 'screens/login_screen.dart'; 
+import 'screens/login_screen.dart';
+import 'screens/chat_screen.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +27,9 @@ void main() async {
     statusBarIconBrightness: Brightness.dark,
   ));
   
+  // Bildirim Servisini Başlat
+  await NotificationService().init();
+
   final apiService = ApiService();
   final bool isLoggedIn = await apiService.checkLoginStatus();
 
@@ -37,7 +44,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Terra AI',
+      title: 'Smart AI',
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -79,6 +86,7 @@ class _MainContainerState extends State<MainContainer> {
   final List<Widget> _pages = [
     const RecordPage(),
     const HistoryPage(),
+    const ChatScreen(),
     const VoiceProfileScreen(), 
   ];
 
@@ -86,8 +94,114 @@ class _MainContainerState extends State<MainContainer> {
   void initState() {
     super.initState();
     _initTts();
-    // NOT: _checkTerraAlerts BURADAN KALDIRILDI. 
-    // Artık RecordPage kendi içinde yönetiyor.
+    
+    // Uygulama açılınca sırayla kontrol et
+    Future.delayed(const Duration(seconds: 1), () async {
+      // 1. Önce Pil Ayarını Garantiye Al
+      await _forceDisableBatteryOptimization();
+      
+      // 2. Sonra diğer izinlere bak (Bildirim vs.)
+      await _checkCriticalPermissions();
+      
+      // 3. Veri çekme işlemi RecordPage içinde yapılacak
+      print("🚀 Smart AI hazır! Bildirim sistemi aktif.");
+    });
+  }
+
+  // --- GARANTİ ÇÖZÜM: PİL KISITLAMASINI KALDIR ---
+  Future<void> _forceDisableBatteryOptimization() async {
+    // 1. Durumu Kontrol Et
+    // "ignoreBatteryOptimizations" izni "Granted" ise, kısıtlama YOK demektir (İyi durum).
+    // "Denied" veya "Restricted" ise, pil tasarrufu açık demektir (Kötü durum).
+    var status = await Permission.ignoreBatteryOptimizations.status;
+
+    if (!status.isGranted) {
+      if (!mounted) return;
+
+      // 2. Kullanıcıya Bilgi Ver ve Yönlendir
+      await showDialog(
+        context: context,
+        barrierDismissible: false, // Boşluğa basınca kapanmasın (ZORUNLU)
+        builder: (context) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.battery_alert_rounded, color: Colors.red),
+              SizedBox(width: 10),
+              Text("Kritik Ayar Gerekli"),
+            ],
+          ),
+          content: const Text(
+            "SmartAI'in size zamanında bildirim gönderebilmesi için 'Pil Kısıtlaması'nın kaldırılması gerekiyor.\n\n"
+            "Açılacak pencerede SmartAI'i bulup 'Kısıtlama Yok' veya 'İzin Ver' seçeneğini işaretleyin.",
+            style: TextStyle(fontSize: 15),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C63FF),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(context); // Dialogu kapat
+                
+                // 3. DİREKT AYAR SAYFASINI AÇ
+                // Bu komut telefonun "Pil Optimizasyonunu Yoksay" penceresini açar.
+                await Permission.ignoreBatteryOptimizations.request();
+              },
+              child: const Text("Ayarları Düzelt"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  // --- KRİTİK İZİNLERİ KONTROL ET ---
+  Future<void> _checkCriticalPermissions() async {
+    // 1. Bildirim İzni (Android 13+)
+    if (await Permission.notification.isDenied) {
+      await Permission.notification.request();
+    }
+
+    // 2. Alarm ve Zamanlama İzni (Android 12+)
+    // Bu izin "Schedule Exact Alarm" iznidir. Eğer verilmezse zamanlı bildirim çalışmaz.
+    if (await Permission.scheduleExactAlarm.isDenied) {
+      await Permission.scheduleExactAlarm.request();
+    }
+    
+    // Eğer hala izin verilmediyse kullanıcıyı bilgilendir
+    if (await Permission.scheduleExactAlarm.isDenied) {
+      if (!mounted) return;
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Hatırlatıcılar İçin İzin Gerekli"),
+          content: const Text(
+            "Smart AI'in size görev zamanında bildirim gönderebilmesi için 'Alarm ve Hatırlatıcı' iznine ihtiyacı var. Lütfen açılan ekranda izin verin."
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Daha Sonra"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings(); // Direkt ayar sayfasını açar
+              },
+              child: const Text("Ayarları Aç"),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // 3. Ses kayıt izni kontrolü
+    var micStatus = await Permission.microphone.status;
+    if (!micStatus.isGranted) {
+      await Permission.microphone.request();
+    }
   }
 
   Future<void> _initTts() async {
@@ -110,7 +224,7 @@ class _MainContainerState extends State<MainContainer> {
     bool _isLoading = false;
     
     final prefs = await SharedPreferences.getInstance();
-    final bool isVoiceEnabled = prefs.getBool('terra_voice_enabled') ?? true;
+    final bool isVoiceEnabled = prefs.getBool('smart_voice_enabled') ?? true;
 
     _flutterTts.stop();
 
@@ -143,7 +257,7 @@ class _MainContainerState extends State<MainContainer> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("Terra Asistan", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          const Text("Smart Asistan", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                           Text(
                             isVoiceEnabled ? "Sesli yanıt açık" : "Sessiz mod", 
                             style: TextStyle(fontSize: 12, color: isVoiceEnabled ? Colors.green : Colors.grey)
@@ -170,7 +284,7 @@ class _MainContainerState extends State<MainContainer> {
                         children: [
                           Icon(Icons.spatial_audio_off_rounded, size: 60, color: Colors.grey[200]),
                           const SizedBox(height: 10),
-                          const Text("Sorunu yaz, Terra cevaplasın.", style: TextStyle(color: Colors.grey)),
+                          const Text("Sorunu yaz, Smart cevaplasın.", style: TextStyle(color: Colors.grey)),
                         ],
                       ),
                     )
@@ -271,57 +385,12 @@ class _MainContainerState extends State<MainContainer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _currentIndex == 2 
-        ? AppBar(
-            title: const Text("Profil"),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.logout, color: Colors.red),
-                onPressed: _logout,
-                tooltip: "Çıkış Yap",
-              )
-            ],
-          )
-        : null,
+      appBar: null,
       body: IndexedStack(
         index: _currentIndex,
         children: _pages,
       ),
-      floatingActionButton: _currentIndex == 1 
-          ? Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6C63FF), Color(0xFF4A47A3)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF6C63FF).withOpacity(0.4),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: FloatingActionButton.extended(
-                onPressed: () => _showGlobalChat(context),
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 22),
-                label: const Text(
-                  "Asistana Sor",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ),
-            )
-          : null,
+      floatingActionButton: null,
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
           labelTextStyle: MaterialStateProperty.all(
@@ -349,6 +418,11 @@ class _MainContainerState extends State<MainContainer> {
               label: 'Geçmiş',
             ),
             NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline_rounded),
+              selectedIcon: Icon(Icons.chat_bubble_rounded, color: Color(0xFF6C63FF)),
+              label: 'AI Asistan',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF6C63FF)),
               label: 'Profil',
@@ -368,27 +442,54 @@ class RecordPage extends StatefulWidget {
   State<RecordPage> createState() => _RecordPageState();
 }
 
-class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateMixin {
-  final AudioRecorder _audioRecorder = AudioRecorder();
+class _RecordPageState extends State<RecordPage> with TickerProviderStateMixin {
   final ApiService _apiService = ApiService();
-  final FlutterTts _flutterTts = FlutterTts(); // TTS Burada da lazım
+  final TranslationService _translationService = TranslationService();
+  final FlutterTts _flutterTts = FlutterTts();
+  final AudioRecorder _audioRecorder = AudioRecorder();
   
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-
   bool _isRecording = false;
   bool _isUploading = false;
-  String _statusMessage = "Dinlemeye Başla";
-  Map<String, dynamic>? _result;
+  bool _isCalendarEnabled = false; // Takvim entegrasyonu durumu
   
-  List<dynamic> _terraNudges = []; // Dürtme Mesajları
+  File? _audioFile;
+  String? _audioPath;
+  Map<String, dynamic>? _result;
+  List<dynamic> _smartNudges = []; // Dürtme Mesajları
   bool _isLoadingNudges = true;
+  int _currentNudgeIndex = 0; // Hangi nudge'ın okunduğunu takip et
+  
+  // Eksik değişkenler
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  String _selectedLanguage = 'tr';
+  String _statusMessage = 'Başlatılıyor...';
+
+  Future<void> _loadLanguage() async {
+    final language = await _translationService.getCurrentLanguage();
+    if (mounted) {
+      setState(() {
+        _selectedLanguage = language;
+        _statusMessage = _translationService.translate('start_listening', languageCode: language);
+      });
+    }
+  }
+
+  // Takvim ayarlarını yükle
+  Future<void> _loadCalendarSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isCalendarEnabled = prefs.getBool('calendar_enabled') ?? false;
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadLanguage();
+    _loadCalendarSettings(); // Takvim ayarlarını yükle
     _requestPermissions();
-    _loadTerraNudges(); // Açılışta verileri çek
+    _loadSmartNudges(); // Açılışta verileriçek
     
     _animationController = AnimationController(
       vsync: this,
@@ -400,24 +501,88 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     );
   }
 
-  // YENİ: Terra Verilerini Çek ve UI'da Göster
-  Future<void> _loadTerraNudges() async {
-    final nudges = await _apiService.getNudges();
+  // YENİ: Belirli bir nudge'ı sesli oku
+  Future<void> _speakNudge(int index) async {
+    if (_smartNudges.isEmpty || index >= _smartNudges.length) return;
+    
     final prefs = await SharedPreferences.getInstance();
-    final bool isVoiceEnabled = prefs.getBool('terra_voice_enabled') ?? true;
+    final bool isVoiceEnabled = prefs.getBool('smart_voice_enabled') ?? true;
+    final String selectedLanguage = prefs.getString('selected_language') ?? 'tr';
+    
+    if (isVoiceEnabled) {
+      // Önceki konuşmayı durdur
+      await _flutterTts.stop();
+      
+      String msg = _smartNudges[index]['message'] ?? "";
+      await _flutterTts.setLanguage(selectedLanguage == 'tr' ? "tr-TR" : selectedLanguage == 'de' ? "de-DE" : "en-US");
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.speak(msg); // Sadece mesajı oku, "hatırlatıcı" deme
+    }
+  }
+
+  // --- TAKVİME EKLEME FONKSİYONU (RECORD PAGE İÇİN) ---
+  void _addToCalendar(Map<String, dynamic> task) {
+    String title = task['description'] ?? "Görev";
+    String dateStr = task['due_date'];
+    
+    // Eğer tarih yoksa ekleme yapma
+    if (dateStr == null || dateStr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu görevin tarihi yok!")));
+      return;
+    }
+
+    try {
+      // Tarihi Parse Et
+      DateTime dueDate = DateTime.parse(dateStr);
+      
+      final Event event = Event(
+        title: "Smart Görevi: $title",
+        description: "Bu görev Smart Asistan tarafından oluşturuldu.\nToplantı ID: Kayıt",
+        location: 'Ofis / Online',
+        startDate: dueDate,
+        endDate: dueDate.add(const Duration(hours: 1)),
+        iosParams: const IOSParams(reminder: Duration(minutes: 30)),
+        androidParams: const AndroidParams(emailInvites: []),
+      );
+
+      Add2Calendar.addEvent2Cal(event);
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Tarih formatı hatası: $e")));
+    }
+  }
+
+  // YENİ: Smart Verilerini Çek ve UI'da Göster
+  Future<void> _loadSmartNudges() async {
+    print("🔄 SMART NUDGES YÜKLENİYOR...");
+    // 1. API'den tüm verileri çek
+    // Not: getNudges() backend tarafında zaten "status != completed" olanları getiriyordu.
+    // Backend'de "30 günlük" pencere açtığımız için veri gelecektir.
+    final nudges = await _apiService.getNudges();
+    
+    final prefs = await SharedPreferences.getInstance();
+    final bool isVoiceEnabled = prefs.getBool('smart_voice_enabled') ?? true;
+    final String selectedLanguage = prefs.getString('selected_language') ?? 'tr';
+    
+    print("📊 GELEN NUDGE SAYISI: ${nudges.length}");
+    
+    // --- YENİ SİSTEM: LİSTEYİ KOMPLE GÖNDER ---
+    // SmartAI servisi, bu liste içinden sadece 10 gün kalanları seçecek
+    // ve saat 15:45'e (veya hemen sonrasına) alarm kuracak.
+    final notifService = NotificationService();
+    await notifService.scheduleDailyStatusCheck(nudges); 
+    // ------------------------------------------
 
     if (mounted) {
       setState(() {
-        _terraNudges = nudges;
+        _smartNudges = nudges;
         _isLoadingNudges = false;
+        _currentNudgeIndex = 0; // İlk nudge'dan başla
       });
 
-      // Eğer ses açıksa ve veri varsa, en önemlisini oku
+      // Eğer ses açıksa ve veri varsa, ilk nudge'ı oku
       if (nudges.isNotEmpty && isVoiceEnabled) {
-        String msg = nudges.first['message'];
-        await _flutterTts.setLanguage("tr-TR");
-        await _flutterTts.setSpeechRate(0.5);
-        await _flutterTts.speak("Furkan, ${msg}");
+        await _speakNudge(0);
       }
     }
   }
@@ -443,7 +608,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
       
       setState(() {
         _isRecording = true;
-        _statusMessage = "Dinliyorum...";
+        _statusMessage = _translationService.translate('listening', languageCode: _selectedLanguage);
         _result = null;
       });
     } else {
@@ -456,7 +621,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
     setState(() {
       _isRecording = false;
       _isUploading = true;
-      _statusMessage = "Analiz Ediliyor...";
+      _statusMessage = _translationService.translate('analyzing', languageCode: _selectedLanguage);
     });
 
     if (path != null) {
@@ -472,7 +637,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
               setState(() {
                 _result = details;
                 _isUploading = false;
-                _statusMessage = "Analiz Tamamlandı";
+                _statusMessage = _translationService.translate('analysis_complete', languageCode: _selectedLanguage);
               });
             }
             return;
@@ -493,7 +658,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(title: const Text("Terra AI")),
+      appBar: AppBar(title: const Text("Smart AI")),
       body: SizedBox(
         width: double.infinity,
         child: Column(
@@ -539,6 +704,18 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                 },
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            // 🔥 TEST BUTONU
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              icon: const Icon(Icons.notifications_active),
+              label: const Text("TEST BİLDİRİMİ GÖNDER"),
+              onPressed: () async {
+                await NotificationService().showImmediateNotification();
+              },
+            ),
             const SizedBox(height: 30),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -565,16 +742,23 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
 
             const Spacer(flex: 1),
             
-            // --- TERRA INSIGHTS (KARTLAR) ---
-            if (!_isRecording && !_isUploading && _terraNudges.isNotEmpty)
+            // --- SMART INSIGHTS (KARTLAR) ---
+            if (!_isRecording && !_isUploading && _smartNudges.isNotEmpty)
               Container(
                 height: 160, // Kart yüksekliği
                 margin: const EdgeInsets.only(bottom: 30),
                 child: PageView.builder(
                   controller: PageController(viewportFraction: 0.85),
-                  itemCount: _terraNudges.length,
+                  itemCount: _smartNudges.length,
+                  onPageChanged: (index) {
+                    // Kullanıcı yana kaydırınca yeni nudge'ı sesli oku
+                    setState(() {
+                      _currentNudgeIndex = index;
+                    });
+                    _speakNudge(index);
+                  },
                   itemBuilder: (context, index) {
-                    var item = _terraNudges[index];
+                    var item = _smartNudges[index];
                     bool isCritical = item['priority'] == 'critical';
                     bool isHigh = item['priority'] == 'high';
                     
@@ -610,7 +794,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                               ),
                               const Spacer(),
                               Text(
-                                "${index + 1}/${_terraNudges.length}",
+                                "${index + 1}/${_smartNudges.length}",
                                 style: TextStyle(color: Colors.grey[400], fontSize: 12),
                               ),
                             ],
@@ -636,6 +820,30 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                 ),
               ),
               
+            // Sayfa göstergesi (noktalar)
+            if (_smartNudges.length > 1)
+              Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                height: 8,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    _smartNudges.length,
+                    (index) => Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: index == _currentNudgeIndex 
+                            ? const Color(0xFF6C63FF) 
+                            : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              
             // Eğer Toplantı Sonucu Geldiyse Göster
              if (_result != null)
               Expanded(
@@ -655,7 +863,7 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text("Toplantı Özeti", style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                          Text(_translationService.translate('meeting_summary', languageCode: _selectedLanguage), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                           IconButton(
                             icon: const Icon(Icons.close, color: Colors.grey),
                             onPressed: () => setState(() => _result = null),
@@ -700,6 +908,28 @@ class _RecordPageState extends State<RecordPage> with SingleTickerProviderStateM
                                           Text("Sorumlu: $assignee", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
                                       ],
                                     ),
+                                  ),
+                                  // SAĞ TARAFTAKİ TAKVİM BUTONU
+                                  if (_isCalendarEnabled && task['due_date'] != null && task['due_date'].toString().isNotEmpty) // Sadece takvim aktifse ve tarihi olanlarda göster
+                                    IconButton(
+                                      icon: const Icon(Icons.event_available_rounded, color: Colors.blueAccent),
+                                      tooltip: "Takvime Ekle",
+                                      onPressed: () => _addToCalendar(task),
+                                    ),
+                                  // Debug için tarih kontrolü - HER ZAMAN GÖSTER
+                                  IconButton(
+                                    icon: const Icon(Icons.calendar_today, color: Colors.red),
+                                    tooltip: "DEBUG: Tarih Durumu",
+                                    onPressed: () {
+                                      print("=== DEBUG INFO ===");
+                                      print("Task due_date: ${task['due_date']}");
+                                      print("Task due_date type: ${task['due_date'].runtimeType}");
+                                      print("Task due_date isNull: ${task['due_date'] == null}");
+                                      print("Task due_date isEmpty: ${task['due_date'].toString().isEmpty}");
+                                      print("Calendar Enabled: $_isCalendarEnabled");
+                                      print("Task full: $task");
+                                      print("==================");
+                                    },
                                   ),
                                 ],
                               ),
@@ -882,11 +1112,53 @@ class MeetingDetailScreen extends StatefulWidget {
 class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
   final ApiService _apiService = ApiService();
   late Future<Map<String, dynamic>?> _detailFuture;
+  bool _isCalendarEnabled = false; // Takvim entegrasyonu durumu
 
   @override
   void initState() {
     super.initState();
+    _loadCalendarSettings(); // Takvim ayarlarını yükle
     _detailFuture = _apiService.getMeetingDetails(widget.meetingId);
+  }
+
+  // Takvim ayarlarını yükle
+  Future<void> _loadCalendarSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isCalendarEnabled = prefs.getBool('calendar_enabled') ?? false;
+    });
+  }
+
+  // --- TAKVİME EKLEME FONKSİYONU ---
+  void _addToCalendar(Map<String, dynamic> task) {
+    String title = task['description'] ?? "Görev";
+    String dateStr = task['due_date'];
+    
+    // Eğer tarih yoksa ekleme yapma
+    if (dateStr == null || dateStr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu görevin tarihi yok!")));
+      return;
+    }
+
+    try {
+      // Tarihi Parse Et (Backend'den "2026-02-14 17:00:00" gibi geliyor)
+      DateTime dueDate = DateTime.parse(dateStr);
+      
+      final Event event = Event(
+        title: "Smart Görevi: $title",
+        description: "Bu görev Smart Asistan tarafından oluşturuldu.\nToplantı ID: ${widget.meetingId}",
+        location: 'Ofis / Online',
+        startDate: dueDate,
+        endDate: dueDate.add(const Duration(hours: 1)), // Varsayılan 1 saat sürsün
+        iosParams: const IOSParams(reminder: Duration(minutes: 30)),
+        androidParams: const AndroidParams(emailInvites: []), // Gerekirse katılımcı eklenebilir
+      );
+
+      Add2Calendar.addEvent2Cal(event);
+      
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Tarih formatı hatası: $e")));
+    }
   }
 
   // --- PDF OLUŞTUR VE PAYLAŞ ---
@@ -1084,6 +1356,13 @@ class _MeetingDetailScreenState extends State<MeetingDetailScreen> {
                                 CircleAvatar(backgroundColor: const Color(0xFF6C63FF).withOpacity(0.1), child: Text(assignee.isNotEmpty ? assignee[0] : "?", style: const TextStyle(color: Color(0xFF6C63FF), fontWeight: FontWeight.bold))),
                                 const SizedBox(width: 16),
                                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(task['description'] ?? "", style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 4), if(task['due_date'] != null) Text("📅 ${task['due_date']} • $assignee", style: TextStyle(color: Colors.red[300], fontSize: 12, fontWeight: FontWeight.bold)) else Text("Sorumlu: $assignee", style: TextStyle(color: Colors.grey[500], fontSize: 12))])),
+                                // SAĞ TARAFTAKİ TAKVİM BUTONU
+                                if (_isCalendarEnabled && task['due_date'] != null && task['due_date'].toString().isNotEmpty)
+                                  IconButton(
+                                    icon: const Icon(Icons.event_available_rounded, color: Colors.blueAccent),
+                                    tooltip: "Takvime Ekle",
+                                    onPressed: () => _addToCalendar(task),
+                                  ),
                               ],
                             ),
                           );

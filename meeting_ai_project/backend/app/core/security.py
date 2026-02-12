@@ -7,7 +7,7 @@ import os
 # --- AYARLAR ---
 # Gerçek projede bunları .env dosyasından çekmeliyiz.
 # Şimdilik burada sabitliyoruz.
-SECRET_KEY = os.getenv("SECRET_KEY", "jarvis_super_gizli_anahtar_2026")
+SECRET_KEY = os.getenv("SECRET_KEY", "smart_ai_super_gizli_anahtar_2026")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 Hafta boyunca oturum açık kalsın
 
