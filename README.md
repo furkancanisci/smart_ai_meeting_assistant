@@ -49,6 +49,49 @@ An intelligent meeting analysis platform that leverages cutting-edge AI technolo
 - Axios                   # HTTP client with async/await
 ```
 
+### Mobile App (Flutter)
+```dart
+// Cross-Platform Mobile Stack
+- Flutter 3.x             # Modern UI framework
+- flutter_local_notifications # Scheduled notifications
+- permission_handler      # Android permissions management
+- timezone               # Time zone handling
+- http                   # API communication
+```
+
+## 🔔 Mobile Notification System
+
+### **Smart Task Reminders**
+- **Scheduled Notifications**: Automatic task reminders at specified times (default: 17:00)
+- **Exact Alarm Support**: Android 12+ compatible precise timing
+- **Background Processing**: Notifications work even when app is closed
+- **Permission Management**: Smart permission requests with user-friendly dialogs
+
+### **Notification Features**
+- **Task-Based Reminders**: Individual notifications for each upcoming task
+- **Time-Based Scheduling**: Configurable daily reminder times
+- **Multi-Notification Support**: Staggered notifications to prevent conflicts
+- **Test Functionality**: Immediate test notifications for debugging
+
+### **Android Integration**
+```xml
+<!-- Required Permissions -->
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+<uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+<uses-permission android:name="android.permission.WAKE_LOCK"/>
+```
+
+### **Notification Service API**
+```dart
+// Core Methods
+await NotificationService().init();                    // Initialize service
+await NotificationService().scheduleDailyStatusCheck(tasks); // Schedule reminders
+await NotificationService().showImmediateNotification(); // Test notification
+```
+
 ### Database Layer
 - **PostgreSQL 16** with pgvector extension for hybrid relational-vector queries
 - **ChromaDB** for persistent vector storage and semantic search
@@ -115,6 +158,19 @@ npm install
 npm run dev
 ```
 
+5. **Mobile App Setup**
+```bash
+cd mobile
+flutter pub get
+flutter run  # For development
+flutter build apk  # For production
+```
+
+### Mobile Configuration
+- Update API base URL in `lib/services/api_service.dart`
+- Configure notification times in `lib/services/notification_service.dart`
+- Android permissions automatically handled by the app
+
 ## 🎯 AI Capabilities in Action
 
 ### **Smart Task Extraction**
@@ -174,7 +230,16 @@ CREATE EXTENSION IF NOT EXISTS vector;
 - **Task Management**: AI-extracted action items with deadlines
 - **Team Collaboration**: Multi-user support with role-based access
 
-## 🚀 Performance
+## � Mobile App Features
+
+- **Smart Notifications**: Scheduled task reminders with exact timing
+- **Permission Management**: Automatic handling of Android notification permissions
+- **Test Functionality**: Built-in notification testing for debugging
+- **Background Processing**: Notifications work when app is closed
+- **API Integration**: Seamless connection to backend services
+- **Cross-Platform**: Flutter-based for iOS and Android compatibility
+
+## �🚀 Performance
 
 - **Transcription**: Real-time with Whisper (1-2x faster than real-time)
 - **LLM Inference**: Sub-second responses with Groq
